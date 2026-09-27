@@ -1,0 +1,41 @@
+name: Build
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - os: macos-latest
+          java: 25
+          arch: arm64
+          runner: macos-latest
+          expander_leg: macos-latest-25-arm64
+    name: Test JDK ${{ matrix.java }}, ${{ matrix.os }} [${{ matrix.expander_leg
+      }}]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7.0.1
+
+    - name: Set up JDK ${{ matrix.java }}
+      uses: actions/setup-java@v6.0.0
+      with:
+        java-version: ${{ matrix.java }}
+        distribution: 'zulu'
+          # There is no native Windows ARM64 JDK 8 build, so setup-java can't find a match for
+          # SemVer '8'. Use the x64 JDK 8 instead; Windows 11 on ARM runs it under emulation,
+          # so the full build and test suite still runs on the windows-11-arm runner.
+          # An empty value keeps setup-java's default, the runner's own architecture.
+        architecture: ${{ (matrix.os == 'windows-latest' && matrix.arch == 
+          'arm64' && matrix.java == 8) && 'x64' || '' }}
+        cache: 'maven'
+
+    - name: Maven Compile
+      run: mvn -X compile -B --file pom.xml
+
+    - name: Maven Verify
+      run: mvn -X verify -B --file pom.xml
+    timeout-minutes: 150
